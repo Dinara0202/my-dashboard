@@ -3,7 +3,7 @@ from supabase import create_client
 
 app = Flask(__name__)
 
-# Твои данные
+# Данные подключения
 URL = "https://ojrrzkjzdpiqektrmayj.supabase.co"
 KEY = "sb_secret_GDS1jjSuepVKkXjLzPUtmg_nherw0OV"
 supabase = create_client(URL, KEY)
@@ -11,48 +11,52 @@ supabase = create_client(URL, KEY)
 @app.route('/')
 def dashboard():
     try:
-        # Получаем данные напрямую массивом
-        response = supabase.table("orders").select("*").execute()
-        data = response.data
+        # 1. Загружаем данные
+        res = supabase.table("orders").select("*").execute()
+        data = res.data
         
-        # Считаем суммы простым циклом (без тяжелого pandas)
-        total_orders = len(data)
-        total_sum = sum(float(row.get('total_sum', 0)) for row in data)
+        # 2. Считаем итоги (без pandas, чтобы не было ошибок)
+        count = len(data)
+        total = sum(float(item.get('total_sum', 0)) for item in data)
         
-        html = f'''
-        <html>
-            <head>
-                <meta charset="utf-8">
-                <title>CRM Dashboard</title>
-                <style>
-                    body {{ font-family: -apple-system, sans-serif; padding: 40px; background: #f0f2f5; }}
-                    .card {{ background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; min-width: 200px; margin-right: 20px; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 30px; background: white; border-radius: 8px; overflow: hidden; }}
-                    th, td {{ padding: 15px; text-align: left; border-bottom: 1px solid #eee; }}
-                    th {{ background: #007bff; color: white; }}
-                    tr:hover {{ background: #f9f9f9; }}
-                </style>
-            </head>
-            <body>
-                <h1>📊 Дашборд заказов</h1>
-                <div class="card"><h3>📦 Всего заказов</h3><p style="font-size: 28px; color: #007bff; font-weight: bold;">{total_orders}</p></div>
-                <div class="card"><h3>💰 Общая сумма</h3><p style="font-size: 28px; color: #28a745; font-weight: bold;">{total_sum:,.0f} ₸</p></div>
-                
-                <table>
-                    <thead>
-                        <tr><th>ID</th><th>Клиент</th><th>Сумма</th><th>Статус</th></tr>
-                    </thead>
-                    <tbody>
-                        {"".join([f"<tr><td>{r['id']}</td><td>{r.get('first_name', '—')}</td><td>{r['total_sum']} ₸</td><td>{r['status']}</td></tr>" for r in data])}
-                    </tbody>
-                </table>
-            </body>
-        </html>
-        '''
-        return render_template_string(html)
-    except Exception as e:
-        return f"<h1>Ошибка конфигурации</h1><p>{str(e)}</p>"
+        # 3. Формируем таблицу
+        rows = "".join([
+            f"<tr><td>{o['id']}</td><td>{o.get('first_name', '—')}</td><td>{o['total_sum']} ₸</td><td>{o['status']}</td></tr>" 
+            for o in data
+        ])
 
-app = Flask(__name__)
-# ... ваш код ...
-app.debug = True # Добавьте это в конец для отладки
+        return render_template_string(f'''
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>CRM Dashboard</title>
+                    <style>
+                        body {{ font-family: sans-serif; padding: 40px; background: #f4f7f6; color: #333; }}
+                        .container {{ max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }}
+                        .stats {{ display: flex; gap: 20px; margin-bottom: 20px; }}
+                        .card {{ flex: 1; padding: 20px; border: 1px solid #eee; border-radius: 10px; text-align: center; }}
+                        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
+                        th {{ background: #007bff; color: white; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>📊 Итоги заказов</h1>
+                        <div class="stats">
+                            <div class="card"><h3>📦 Заказов</h3><p style="font-size: 24px; font-weight: bold;">{count}</p></div>
+                            <div class="card"><h3>💰 Сумма</h3><p style="font-size: 24px; font-weight: bold; color: green;">{total:,.0f} ₸</p></div>
+                        </div>
+                        <table>
+                            <tr><th>ID</th><th>Имя</th><th>Сумма</th><th>Статус</th></tr>
+                            {rows}
+                        </table>
+                    </div>
+                </body>
+            </html>
+        ''')
+    except Exception as e:
+        return f"<h1>Ошибка!</h1><p>{str(e)}</p>"
+
+# Это нужно для Vercel
+app = app
