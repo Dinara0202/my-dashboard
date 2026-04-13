@@ -52,3 +52,7 @@ def dashboard():
         return render_template_string(html)
     except Exception as e:
         return f"<h1>Ошибка конфигурации</h1><p>{str(e)}</p>"
+
+app = Flask(__name__)
+# ... ваш код ...
+app.debug = True # Добавьте это в конец для отладки
